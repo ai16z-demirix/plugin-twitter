@@ -13,7 +13,9 @@ export enum ChannelType {
 }
 
 // Create mock functions
-const createUniqueUuid = mock((runtime: any, id: string) => `uuid-${id}`);
+const createUniqueUuid = mock<(runtime: unknown, id: string) => UUID>(
+  (_runtime, id) => `uuid-${id}` as UUID,
+);
 const mockError = mock();
 const mockDebug = mock();
 const mockInfo = mock();
