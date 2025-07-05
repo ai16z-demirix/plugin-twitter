@@ -41,16 +41,16 @@ Unit tests mock external dependencies and test individual components:
 
 ```bash
 # Run all unit tests
-npm test
+bun test
 
 # Run specific test file
-npm test MessageService.test.ts
+bun test src/services/__tests__/MessageService.test.ts
 
-# Run with coverage
-npm test -- --coverage
+# Run specific pattern
+bun test --pattern "MessageService"
 
 # Run in watch mode
-npm test -- --watch
+bun test --watch
 ```
 
 ### E2E Tests
@@ -59,10 +59,10 @@ End-to-end tests require real Twitter API credentials:
 
 ```bash
 # Run E2E tests (requires .env.test file)
-npm test -- --run e2e
+bun test src/__tests__/e2e
 
-# Skip E2E tests if no credentials
-npm test -- --run --exclude="**/e2e/**"
+# Skip E2E tests (run only unit tests)
+bun test --pattern "^(?!.*e2e).*$"
 ```
 
 ## Test Coverage
@@ -156,7 +156,7 @@ console.log("Profile:", profile);
 ### 2. Enable Debug Logging
 
 ```bash
-DEBUG=elizaos:* npm test
+DEBUG=elizaos:* bun test
 ```
 
 ### 3. Common Issues
@@ -198,6 +198,53 @@ With Twitter API v2 only:
 - ❌ Media upload (requires additional implementation)
 - ❌ Unlike/unretweet (requires additional implementation)
 - ❌ Fetch retweeters list
+
+## Bun Test Setup
+
+This project uses Bun as the test runner instead of Vitest. Here's how the test environment is configured:
+
+### Test Runner Configuration
+
+- Tests use `bun:test` imports for test utilities (`test`, `describe`, `expect`, etc.)
+- The test setup is configured in `bunfig.toml` and `src/test-setup.ts`
+
+### Mocking
+
+- Bun's native mocking system is used with `mock()` and `mock.module()` instead of Vitest's `vi.mock()`
+- External dependencies are mocked via module mocks in `test-setup.ts`:
+
+```typescript
+// Example from test-setup.ts
+import { mock } from 'bun:test';
+
+mock.module('@elizaos/core', () => {
+  return {
+    createUniqueUuid: (runtime: any, id: string) => `uuid-${id}`,
+    logger: { /* mock methods */ },
+    // Other mocked exports...
+  };
+});
+```
+
+- Additional manual mocks are located in `src/__mocks__/`
+
+### TypeScript Compatibility
+
+- UUID string template literals use a utility function for type compatibility:
+
+```typescript
+// Type for UUID template strings
+type UuidString = `${string}-${string}-${string}-${string}-${string}`;
+    
+// Helper function to cast any string to UUID format for type compatibility
+const asUuid = (id: string): UuidString => id as UuidString;
+```
+
+### Test Patterns
+
+- Unit tests are in `__tests__` directories next to the code they test
+- E2E tests are in `__tests__/e2e/` and require valid Twitter API credentials
+- The tests use the `.env.test` file for test configuration
 - ❌ Trends API
 - ❌ Direct message conversations (requires additional permissions)
 
