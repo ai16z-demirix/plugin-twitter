@@ -1,15 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, test, expect, mock, beforeEach, spyOn } from "bun:test";
 import { TwitterMessageService } from "../MessageService";
 import { MessageType } from "../IMessageService";
 import type { ClientBase } from "../../base";
 import { SearchMode } from "../../client";
 
 // Mock the dependencies
-vi.mock("@elizaos/core", () => ({
-  createUniqueUuid: vi.fn((runtime, id) => `uuid-${id}`),
+const mockCreateUniqueUuid = mock((runtime, id) => `uuid-${id}`);
+const mockLoggerError = mock();
+const mockLoggerDebug = mock();
+
+mock.module("@elizaos/core", () => ({
+  createUniqueUuid: mockCreateUniqueUuid,
   logger: {
-    error: vi.fn(),
-    debug: vi.fn(),
+    error: mockLoggerError,
+    debug: mockLoggerDebug,
   },
 }));
 
@@ -21,18 +25,18 @@ describe("TwitterMessageService", () => {
     // Create mock client
     mockClient = {
       runtime: {
-        agentId: "agent-123",
+        agentId: "agent-123" as `${string}-${string}-${string}-${string}-${string}`,
       },
       profile: {
         id: "user-123",
         username: "testuser",
       },
-      fetchSearchTweets: vi.fn(),
+      fetchSearchTweets: mock(),
       twitterClient: {
-        sendDirectMessage: vi.fn(),
-        sendTweet: vi.fn(),
-        deleteTweet: vi.fn(),
-        getTweet: vi.fn(),
+        sendDirectMessage: mock(),
+        sendTweet: mock(),
+        deleteTweet: mock(),
+        getTweet: mock(),
       },
     };
 
@@ -40,7 +44,7 @@ describe("TwitterMessageService", () => {
   });
 
   describe("getMessages", () => {
-    it("should fetch messages based on mentions", async () => {
+    test("should fetch messages based on mentions", async () => {
       const mockTweets = [
         {
           id: "tweet-1",
@@ -69,7 +73,7 @@ describe("TwitterMessageService", () => {
       });
 
       const options = {
-        agentId: "agent-123" as any,
+        agentId: "agent-123" as `${string}-${string}-${string}-${string}-${string}` as any,
         limit: 10,
       };
 
@@ -84,8 +88,8 @@ describe("TwitterMessageService", () => {
       expect(messages).toHaveLength(2);
       expect(messages[0]).toEqual({
         id: "tweet-1",
-        agentId: "agent-123",
-        roomId: "uuid-conv-1",
+        agentId: "agent-123" as `${string}-${string}-${string}-${string}-${string}`,
+        roomId: "uuid-conv-1" as `${string}-${string}-${string}-${string}-${string}`,
         userId: "user-456",
         username: "otheruser",
         text: "@testuser Hello!",
@@ -101,7 +105,7 @@ describe("TwitterMessageService", () => {
       expect(messages[1].type).toBe(MessageType.REPLY);
     });
 
-    it("should filter by roomId when specified", async () => {
+    test("should filter by roomId when specified", async () => {
       const mockTweets = [
         {
           id: "tweet-1",
@@ -126,8 +130,8 @@ describe("TwitterMessageService", () => {
       });
 
       const options = {
-        agentId: "agent-123" as any,
-        roomId: "uuid-conv-1" as any,
+        agentId: "agent-123" as `${string}-${string}-${string}-${string}-${string}` as any,
+        roomId: "uuid-conv-1" as `${string}-${string}-${string}-${string}-${string}` as any,
       };
 
       const messages = await service.getMessages(options);
@@ -136,11 +140,11 @@ describe("TwitterMessageService", () => {
       expect(messages[0].id).toBe("tweet-1");
     });
 
-    it("should handle errors gracefully", async () => {
+    test("should handle errors gracefully", async () => {
       mockClient.fetchSearchTweets.mockRejectedValue(new Error("API Error"));
 
       const options = {
-        agentId: "agent-123" as any,
+        agentId: "agent-123" as `${string}-${string}-${string}-${string}-${string}` as any,
       };
 
       const messages = await service.getMessages(options);
@@ -150,7 +154,7 @@ describe("TwitterMessageService", () => {
   });
 
   describe("sendMessage", () => {
-    it("should send a direct message", async () => {
+    test("should send a direct message", async () => {
       const mockResult = {
         id: "dm-123",
         text: "Hello DM",
@@ -159,8 +163,8 @@ describe("TwitterMessageService", () => {
       mockClient.twitterClient.sendDirectMessage.mockResolvedValue(mockResult);
 
       const options = {
-        agentId: "agent-123" as any,
-        roomId: "room-123" as any,
+        agentId: "agent-123" as `${string}-${string}-${string}-${string}-${string}` as any,
+        roomId: "room-123" as `${string}-${string}-${string}-${string}-${string}` as any,
         text: "Hello DM",
         type: MessageType.DIRECT_MESSAGE,
       };
@@ -168,14 +172,14 @@ describe("TwitterMessageService", () => {
       const message = await service.sendMessage(options);
 
       expect(mockClient.twitterClient.sendDirectMessage).toHaveBeenCalledWith(
-        "room-123",
+        "room-123" as `${string}-${string}-${string}-${string}-${string}`,
         "Hello DM",
       );
 
       expect(message).toEqual({
         id: "dm-123",
-        agentId: "agent-123",
-        roomId: "room-123",
+        agentId: "agent-123" as `${string}-${string}-${string}-${string}-${string}`,
+        roomId: "room-123" as `${string}-${string}-${string}-${string}-${string}`,
         userId: "user-123",
         username: "testuser",
         text: "Hello DM",
@@ -188,16 +192,16 @@ describe("TwitterMessageService", () => {
       });
     });
 
-    it("should send a tweet", async () => {
+    test("should send a tweet", async () => {
       const mockResult = {
-        rest_id: "tweet-123",
+        id: "tweet-123",
+        rest_id: "tweet-123"
       };
-
       mockClient.twitterClient.sendTweet.mockResolvedValue(mockResult);
 
       const options = {
-        agentId: "agent-123" as any,
-        roomId: "room-123" as any,
+        agentId: "agent-123" as `${string}-${string}-${string}-${string}-${string}` as any,
+        roomId: "room-123" as `${string}-${string}-${string}-${string}-${string}` as any,
         text: "Hello Tweet",
         type: MessageType.POST,
         replyToId: "reply-to-123",
@@ -216,27 +220,27 @@ describe("TwitterMessageService", () => {
   });
 
   describe("deleteMessage", () => {
-    it("should delete a message", async () => {
-      await service.deleteMessage("tweet-123", "agent-123" as any);
+    test("should delete a message", async () => {
+      await service.deleteMessage("tweet-123", "agent-123" as `${string}-${string}-${string}-${string}-${string}` as any);
 
       expect(mockClient.twitterClient.deleteTweet).toHaveBeenCalledWith(
         "tweet-123",
       );
     });
 
-    it("should throw error on failure", async () => {
+    test("should throw error on failure", async () => {
       mockClient.twitterClient.deleteTweet.mockRejectedValue(
         new Error("Delete failed"),
       );
 
       await expect(
-        service.deleteMessage("tweet-123", "agent-123" as any),
+        service.deleteMessage("tweet-123", "agent-123" as `${string}-${string}-${string}-${string}-${string}` as any),
       ).rejects.toThrow("Delete failed");
     });
   });
 
   describe("getMessage", () => {
-    it("should fetch a single message", async () => {
+    test("should fetch a single message", async () => {
       const mockTweet = {
         id: "tweet-123",
         userId: "user-456",
@@ -250,12 +254,12 @@ describe("TwitterMessageService", () => {
 
       mockClient.twitterClient.getTweet.mockResolvedValue(mockTweet);
 
-      const message = await service.getMessage("tweet-123", "agent-123" as any);
+      const message = await service.getMessage("tweet-123", "agent-123" as `${string}-${string}-${string}-${string}-${string}` as any);
 
       expect(message).toEqual({
         id: "tweet-123",
-        agentId: "agent-123",
-        roomId: "uuid-conv-123",
+        agentId: "agent-123" as `${string}-${string}-${string}-${string}-${string}`,
+        roomId: "uuid-conv-123" as `${string}-${string}-${string}-${string}-${string}`,
         userId: "user-456",
         username: "someuser",
         text: "Hello World",
@@ -269,22 +273,23 @@ describe("TwitterMessageService", () => {
       });
     });
 
-    it("should return null if tweet not found", async () => {
+    test("should return null if tweet not found", async () => {
       mockClient.twitterClient.getTweet.mockResolvedValue(null);
 
-      const message = await service.getMessage("tweet-123", "agent-123" as any);
+      const message = await service.getMessage("tweet-123", "agent-123" as `${string}-${string}-${string}-${string}-${string}` as any);
 
       expect(message).toBeNull();
     });
   });
 
   describe("markAsRead", () => {
-    it("should log that marking as read is not implemented", async () => {
+    test("should log that marking as read is not implemented", async () => {
       const { logger } = await import("@elizaos/core");
-      const logSpy = vi.spyOn(logger, "debug").mockImplementation(() => {});
+      const logSpy = spyOn(logger, "debug");
 
-      await service.markAsRead(["tweet-1", "tweet-2"], "agent-123" as any);
+      await service.markAsRead(["message-123"], "agent-123" as `${string}-${string}-${string}-${string}-${string}` as any);
 
+      expect(logSpy).toHaveBeenCalledTimes(1);
       expect(logSpy).toHaveBeenCalledWith(
         "Marking messages as read is not implemented for Twitter",
       );

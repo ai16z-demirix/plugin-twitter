@@ -10,6 +10,7 @@
     "noEmit": true,
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
+    "types": ["bun-types"]
   },
   "include": ["src/**/*"]
 }

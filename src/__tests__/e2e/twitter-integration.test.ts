@@ -1,20 +1,40 @@
 import {
   describe,
-  it,
+  test,
   expect,
   beforeAll,
   afterAll,
   beforeEach,
-  vi,
-} from "vitest";
+  mock,
+  spyOn,
+} from "bun:test";
 import { TwitterAuth } from "../../client/auth";
 import { TwitterMessageService } from "../../services/MessageService";
 import { TwitterPostService } from "../../services/PostService";
 import { ClientBase } from "../../base";
 import { MessageType } from "../../services/IMessageService";
 import { SearchMode } from "../../client";
-import type { IAgentRuntime } from "@elizaos/core";
+// Define our own version of the types we need to avoid import issues
+type IAgentRuntime = {
+  agentId: string;
+  getSetting: (key: string) => any;
+  character: Record<string, any>;
+  getCache: (key: string) => Promise<any>;
+  setCache: (key: string, value: any) => Promise<void>;
+  getMemoriesByRoomIds: (roomIds: string[]) => Promise<any[]>;
+  ensureWorldExists: () => Promise<void>;
+  ensureConnection: () => Promise<void>;
+  createMemory: () => Promise<void>;
+  getEntityById: () => Promise<any>;
+  updateEntity: () => Promise<void>;
+};
 import dotenv from "dotenv";
+
+// Add type for UUID template strings
+type UuidString = `${string}-${string}-${string}-${string}-${string}`;
+    
+// Helper function to cast any string to UUID format for type compatibility
+const asUuid = (id: string): UuidString => id as UuidString;
 
 // Load environment variables from .env.test file
 dotenv.config({ path: ".env.test" });
@@ -35,19 +55,20 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
   let testTweetIds: string[] = [];
 
   beforeAll(async () => {
+
     // Setup runtime mock
     runtime = {
-      agentId: "test-agent-123" as any,
+      agentId: "test-agent-123" as UuidString,
       getSetting: (key: string) => process.env[key],
       character: {},
-      getCache: vi.fn(),
-      setCache: vi.fn(),
-      getMemoriesByRoomIds: vi.fn().mockResolvedValue([]),
-      ensureWorldExists: vi.fn(),
-      ensureConnection: vi.fn(),
-      createMemory: vi.fn(),
-      getEntityById: vi.fn().mockResolvedValue(null),
-      updateEntity: vi.fn(),
+      getCache: mock(),
+      setCache: mock(),
+      getMemoriesByRoomIds: mock().mockResolvedValue([]),
+      ensureWorldExists: mock(),
+      ensureConnection: mock(),
+      createMemory: mock(),
+      getEntityById: mock().mockResolvedValue(null),
+      updateEntity: mock(),
     } as any;
 
     // Initialize client with real credentials
@@ -58,7 +79,7 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
       TWITTER_ACCESS_TOKEN_SECRET: process.env.TWITTER_ACCESS_TOKEN_SECRET,
     };
 
-    client = new ClientBase(runtime, state);
+    client = new ClientBase(runtime as any, state);
     await client.init();
 
     // Initialize services
@@ -72,7 +93,7 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
 
     for (const tweetId of testTweetIds) {
       try {
-        await postService.deletePost(tweetId, runtime.agentId);
+        await postService.deletePost(tweetId, (runtime as any).agentId);
         console.log(`Deleted tweet ${tweetId}`);
       } catch (error) {
         console.error(`Failed to delete tweet ${tweetId}:`, error);
@@ -86,12 +107,12 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
   });
 
   describe("Authentication", () => {
-    it("should authenticate successfully with API v2 credentials", async () => {
+    test("should authenticate successfully with API v2 credentials", async () => {
       const isLoggedIn = await client.twitterClient.isLoggedIn();
       expect(isLoggedIn).toBe(true);
     });
 
-    it("should fetch authenticated user profile", async () => {
+    test("should fetch authenticated user profile", async () => {
       const profile = await client.twitterClient.me();
 
       expect(profile).toBeDefined();
@@ -108,73 +129,73 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
   });
 
   describe("PostService", () => {
-    it("should create a simple post", async () => {
+    test("should create a simple post", async () => {
       const timestamp = Date.now();
       const post = await postService.createPost({
-        agentId: runtime.agentId,
+        agentId: (runtime as any).agentId,
         roomId: "test-room" as any,
         text: `E2E Test Post ${timestamp} - This is an automated test, will be deleted`,
       });
 
       expect(post).toBeDefined();
-      expect(post.id).toBeDefined();
+      expect(asUuid(post.id)).toBeDefined();
       expect(post.text).toContain("E2E Test Post");
       expect(post.timestamp).toBeGreaterThan(0);
 
-      testTweetIds.push(post.id);
-      console.log("Created post:", post.id);
+      testTweetIds.push(asUuid(post.id));
+      console.log("Created post:", asUuid(post.id));
     });
 
-    it("should create a reply post", async () => {
+    test("should create a reply post", async () => {
       // First create a post to reply to
       const originalPost = await postService.createPost({
-        agentId: runtime.agentId,
+        agentId: (runtime as any).agentId,
         roomId: "test-room" as any,
         text: `E2E Test Original ${Date.now()}`,
       });
-      testTweetIds.push(originalPost.id);
+      testTweetIds.push(asUuid(originalPost.id));
 
       // Create a reply
       const replyPost = await postService.createPost({
-        agentId: runtime.agentId,
+        agentId: (runtime as any).agentId,
         roomId: "test-room" as any,
         text: `E2E Test Reply ${Date.now()}`,
-        inReplyTo: originalPost.id,
+        inReplyTo: asUuid(originalPost.id),
       });
 
       expect(replyPost).toBeDefined();
-      expect(replyPost.inReplyTo).toBe(originalPost.id);
+      expect(replyPost.inReplyTo).toBe(asUuid(originalPost.id));
 
       testTweetIds.push(replyPost.id);
-      console.log("Created reply:", replyPost.id, "to:", originalPost.id);
+      console.log("Created reply:", replyPost.id, "to:", asUuid(originalPost.id));
     });
 
-    it("should fetch a post by ID", async () => {
+    test("should fetch a post by ID", async () => {
       // Create a post
       const createdPost = await postService.createPost({
-        agentId: runtime.agentId,
+        agentId: (runtime as any).agentId,
         roomId: "test-room" as any,
         text: `E2E Test Fetch ${Date.now()}`,
       });
-      testTweetIds.push(createdPost.id);
+      testTweetIds.push(asUuid(createdPost.id));
 
       // Fetch it back
       const fetchedPost = await postService.getPost(
-        createdPost.id,
-        runtime.agentId,
+        asUuid(createdPost.id),
+        (runtime as any).agentId
       );
 
       expect(fetchedPost).toBeDefined();
-      expect(fetchedPost?.id).toBe(createdPost.id);
+      expect(fetchedPost?.id).toBe(asUuid(createdPost.id));
       expect(fetchedPost?.text).toBe(createdPost.text);
     });
 
-    it("should fetch user posts", async () => {
+    test("should fetch user posts", async () => {
       const profile = await client.twitterClient.me();
       if (!profile) throw new Error("No profile available");
 
       const posts = await postService.getPosts({
-        agentId: runtime.agentId,
+        agentId: (runtime as any).agentId,
         userId: profile.userId,
         limit: 5,
       });
@@ -186,53 +207,53 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
       console.log(`Fetched ${posts.length} posts for user ${profile.username}`);
     });
 
-    it("should like and unlike a post", async () => {
+    test("should like and unlike a post", async () => {
       // Create a post
       const post = await postService.createPost({
-        agentId: runtime.agentId,
+        agentId: (runtime as any).agentId,
         roomId: "test-room" as any,
         text: `E2E Test Like ${Date.now()}`,
       });
-      testTweetIds.push(post.id);
+      testTweetIds.push(asUuid(post.id));
 
       // Like the post
-      await postService.likePost(post.id, runtime.agentId);
-      console.log("Liked post:", post.id);
+      await postService.likePost(asUuid(post.id), (runtime as any).agentId);
+      console.log("Liked post:", asUuid(post.id));
 
       // Wait a bit
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Fetch the post to verify it was liked
-      const likedPost = await postService.getPost(post.id, runtime.agentId);
+      const likedPost = await postService.getPost(asUuid(post.id), (runtime as any).agentId);
       // Note: The like count might not update immediately due to Twitter's eventual consistency
       console.log("Post metrics after like:", likedPost?.metrics);
     });
 
-    it("should delete a post", async () => {
+    test("should delete a post", async () => {
       // Create a post
       const post = await postService.createPost({
-        agentId: runtime.agentId,
+        agentId: (runtime as any).agentId,
         roomId: "test-room" as any,
         text: `E2E Test Delete ${Date.now()}`,
       });
 
-      console.log("Created post to delete:", post.id);
+      console.log("Created post to delete:", asUuid(post.id));
 
       // Delete it
-      await postService.deletePost(post.id, runtime.agentId);
+      await postService.deletePost(asUuid(post.id), (runtime as any).agentId);
 
       // Try to fetch it - should return null or throw
-      const deletedPost = await postService.getPost(post.id, runtime.agentId);
+      const deletedPost = await postService.getPost(asUuid(post.id), (runtime as any).agentId);
       expect(deletedPost).toBeNull();
 
-      console.log("Successfully deleted post:", post.id);
+      console.log("Successfully deleted post:", asUuid(post.id));
     });
   });
 
   describe("MessageService", () => {
-    it("should fetch mentions", async () => {
+    test("should fetch mentions", async () => {
       const messages = await messageService.getMessages({
-        agentId: runtime.agentId,
+        agentId: (runtime as any).agentId,
         limit: 5,
       });
 
@@ -251,10 +272,10 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
       }
     });
 
-    it("should send a regular tweet via message service", async () => {
+    test("should send a regular tweet via message service", async () => {
       const timestamp = Date.now();
       const message = await messageService.sendMessage({
-        agentId: runtime.agentId,
+        agentId: (runtime as any).agentId,
         roomId: "test-room" as any,
         text: `E2E Test Message ${timestamp}`,
         type: MessageType.POST,
@@ -269,10 +290,10 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
       console.log("Sent message:", message.id);
     });
 
-    it("should fetch a specific message by ID", async () => {
+    test("should fetch a specific message by ID", async () => {
       // Create a tweet first
       const sent = await messageService.sendMessage({
-        agentId: runtime.agentId,
+        agentId: (runtime as any).agentId,
         roomId: "test-room" as any,
         text: `E2E Test Get Message ${Date.now()}`,
         type: MessageType.POST,
@@ -280,7 +301,7 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
       testTweetIds.push(sent.id);
 
       // Fetch it back
-      const fetched = await messageService.getMessage(sent.id, runtime.agentId);
+      const fetched = await messageService.getMessage(asUuid(sent.id), (runtime as any).agentId);
 
       expect(fetched).toBeDefined();
       expect(fetched?.id).toBe(sent.id);
@@ -289,7 +310,7 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
   });
 
   describe("Search and Timeline", () => {
-    it("should search for tweets", async () => {
+    test("should search for tweets", async () => {
       const searchResult = await client.fetchSearchTweets(
         "javascript",
         5,
@@ -305,7 +326,7 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
       );
     });
 
-    it("should fetch home timeline", async () => {
+    test("should fetch home timeline", async () => {
       const timeline = await client.fetchHomeTimeline(10, false);
 
       expect(timeline).toBeDefined();
@@ -317,43 +338,17 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
   });
 
   describe("Error Handling", () => {
-    it("should handle non-existent tweet gracefully", async () => {
-      const nonExistentId = "1234567890123456789"; // Unlikely to exist
+    test("should handle non-existent tweet gracefully", async () => {
+      const nonExistentId = asUuid("1234567890123456789"); // Unlikely to exist
 
-      const post = await postService.getPost(nonExistentId, runtime.agentId);
+      const post = await postService.getPost(nonExistentId, (runtime as any).agentId);
       expect(post).toBeNull();
 
       const message = await messageService.getMessage(
         nonExistentId,
-        runtime.agentId,
+        (runtime as any).agentId
       );
       expect(message).toBeNull();
-    });
-
-    it("should handle rate limiting gracefully", async () => {
-      // This test is commented out to avoid hitting rate limits during normal test runs
-      // Uncomment to test rate limit handling
-      /*
-      const promises = [];
-      for (let i = 0; i < 20; i++) {
-        promises.push(
-          postService.createPost({
-            agentId: runtime.agentId,
-            roomId: 'test-room' as any,
-            text: `Rate limit test ${i} at ${Date.now()}`,
-          }).then(post => {
-            testTweetIds.push(post.id);
-            return post;
-          })
-        );
-      }
-
-      try {
-        await Promise.all(promises);
-      } catch (error) {
-        expect(error.message).toContain('rate limit');
-      }
-      */
     });
   });
 });
