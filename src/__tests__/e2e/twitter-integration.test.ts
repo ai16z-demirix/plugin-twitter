@@ -166,7 +166,7 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
       expect(replyPost).toBeDefined();
       expect(replyPost.inReplyTo).toBe(asUuid(originalPost.id));
 
-      testTweetIds.push(replyPost.id);
+      testTweetIds.push(asUuid(replyPost.id));
       console.log("Created reply:", replyPost.id, "to:", asUuid(originalPost.id));
     });
 
@@ -286,7 +286,7 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
       expect(message.text).toContain("E2E Test Message");
       expect(message.type).toBe(MessageType.POST);
 
-      testTweetIds.push(message.id);
+      testTweetIds.push(asUuid(message.id));
       console.log("Sent message:", message.id);
     });
 
@@ -298,7 +298,7 @@ describe.skipIf(SKIP_E2E)("Twitter E2E Integration Tests", () => {
         text: `E2E Test Get Message ${Date.now()}`,
         type: MessageType.POST,
       });
-      testTweetIds.push(sent.id);
+      testTweetIds.push(asUuid(sent.id));
 
       // Fetch it back
       const fetched = await messageService.getMessage(asUuid(sent.id), (runtime as any).agentId);

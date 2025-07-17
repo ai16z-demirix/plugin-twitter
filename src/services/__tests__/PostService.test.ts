@@ -166,11 +166,10 @@ describe("TwitterPostService", () => {
         inReplyToId: null,
         quotedTweetId: null,
         permanentUrl: "https://twitter.com/someuser/status/tweet-123",
-        media: [
+        photos: [
           {
-            type: "photo",
+            id: "photo-1",
             url: "https://example.com/photo.jpg",
-            metadata: { id: "photo-1" },
           },
         ],
       };
@@ -195,7 +194,13 @@ describe("TwitterPostService", () => {
         quotes: 0,
         views: 100,
       });
-      expect(post!.media).toEqual([]);
+      expect(post!.media).toEqual([{
+        type: "image",
+        url: "https://example.com/photo.jpg",
+        metadata: {
+          id: "photo-1",
+        },
+      }]);
       expect(post!.metadata).toEqual({
         conversationId: "conv-123",
         permanentUrl: "https://twitter.com/someuser/status/tweet-123",
