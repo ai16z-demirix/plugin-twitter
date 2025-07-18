@@ -161,6 +161,7 @@ describe("TwitterPostService", () => {
         likes: 10,
         retweets: 5,
         replies: 3,
+        quotes: 2,
         views: 100,
         conversationId: "conv-123",
         inReplyToId: null,
@@ -191,7 +192,7 @@ describe("TwitterPostService", () => {
         likes: 10,
         reposts: 5,
         replies: 3,
-        quotes: 0,
+        quotes: 2,
         views: 100,
       });
       expect(post!.media).toEqual([{
